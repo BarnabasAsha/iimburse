@@ -1,0 +1,53 @@
+version: '3.9'
+
+services:
+  redis:
+    image: redis:5
+    networks:
+      - webnet
+    ports:
+      - 6389:6379
+  postgres:
+    image: postgres:13
+    networks:
+      - webnet
+    environment:
+      POSTGRES_PASSWORD: root
+      POSTGRES_USER: postgres
+      POSTGRES_DB: iimburse
+      PG_DATA: /var/lib/postgresql/main
+    ports:
+      - 5435:5432
+  iimburse-pg-ledger:
+    image: postgres:13
+    networks:
+      - webnet
+    environment:
+      POSTGRES_PASSWORD: ledger
+      POSTGRES_USER: ledger
+      POSTGRES_DB: ledger
+      PG_DATA: /var/lib/postgresql/ledger
+    ports:
+      - 5444:5432
+  ledger:
+    image: 'ghcr.io/formancehq/ledger:latest'
+    ports:
+      - 3078:3068
+    networks:
+      - webnet
+    healthcheck:
+      test: ['CMD', 'wget', 'http://127.0.0.1:3068/_info', '-O', '-', '-q']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      NUMARY_STORAGE_DRIVER: 'postgres'
+      NUMARY_STORAGE_POSTGRES_CONN_STRING: 'postgresql://ledger:ledger@iimburse-pg-ledger/ledger'
+      NUMARY_SERVER_HTTP_BIND_ADDRESS: '0.0.0.0:3068'
+      NUMARY_AUTH_BASIC_ENABLED: 'true'
+      NUMARY_AUTH_BASIC_CREDENTIALS: 'ledger:formatic'
+    depends_on:
+      - iimburse-pg-ledger
+
+networks:
+  webnet:
